@@ -115,7 +115,10 @@ echo "$(date -Is),${CONTAINER},$(( $(date +%s) - START_TIME ))" >> "$CSV"
 # 4. Re-point pi + OpenClaw at whatever :8000 now serves.
 if [ -x /home/joran/scripts/update-agent-models.sh ]; then
   say "re-pointing agents at :${PORT}"
-  /home/joran/scripts/update-agent-models.sh || echo -e "${Y}agent sync failed (non-fatal)${RS}"
+  # That script reads the context from vLLM's `max_model_len`, which llama.cpp
+  # does not report; without this it silently falls back to its 32768 default.
+  CONTEXT_WINDOW="$CONTEXT_SIZE" /home/joran/scripts/update-agent-models.sh \
+    || echo -e "${Y}agent sync failed (non-fatal)${RS}"
 fi
 
 say "serving on http://localhost:${PORT}/v1  — ./stop.sh returns the GPU to vLLM"

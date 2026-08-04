@@ -14,7 +14,9 @@ ALIAS="DeepSeek-V4-Flash-0731"
 PORT=8000
 CONTEXT_SIZE=32768
 THREADS=12          # physical cores only; SMT siblings thrash cache
-N_CPU_MOE=35        # expert layers pushed to RAM. 33 measured no faster and left only 2.3gb VRAM spare.
+N_CPU_MOE=36        # expert layers pushed to RAM. See the tuning table in CLAUDE.md.
+UBATCH_SIZE=2048    # prefill streams the CPU experts over PCIe once per ubatch — big ubatch amortises it
+BATCH_SIZE=2048
 # ---------------------------------------------------------------------------
 
 C='\033[96m'; G='\033[92m'; Y='\033[93m'; R='\033[91m'; RS='\033[0m'
@@ -47,13 +49,12 @@ done
 [ "$used" -lt 1000 ] || { echo -e "${R}VRAM still ${used} MiB in use${RS} — check nvidia-smi" >&2; exit 1; }
 say "VRAM free (${used} MiB used)"
 
-# 2. Reuse an existing container if we have one; its config is baked in.
-if [ "$(docker ps -aq -f name="^${CONTAINER}$" -f status=exited)" ]; then
-  say "restarting existing container"
-  docker start "$CONTAINER" >/dev/null
-elif [ "$(docker ps -q -f name="^${CONTAINER}$")" ]; then
+# 2. Always recreate: flags above are baked into the container at create time, so
+#    reusing a stale one would silently ignore edits to the constants.
+if [ "$(docker ps -q -f name="^${CONTAINER}$")" ]; then
   say "already running"
 else
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   say "creating container (model load takes several minutes)"
   # --restart no: vLLM's container is `unless-stopped` and also binds 8000;
   # two auto-restarting containers would race for the port after a reboot.
@@ -78,6 +79,8 @@ else
     --n-cpu-moe "$N_CPU_MOE" \
     --threads "$THREADS" \
     --ctx-size "$CONTEXT_SIZE" \
+    --batch-size "$BATCH_SIZE" \
+    --ubatch-size "$UBATCH_SIZE" \
     --cont-batching \
     --parallel 1 \
     --jinja \

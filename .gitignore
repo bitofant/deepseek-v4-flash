@@ -1,7 +1,9 @@
-# Transient build artifacts (recreated by build-async.sh each run)
+
+build.exit
 build.log
 build.pid
-build.exit
-
-# Local, per-machine Claude settings (personal; not shared)
 .claude/settings.local.json
+# Local, per-machine Claude settings (personal; not shared)
+# Transient build artifacts (recreated by build-async.sh each run)
+tune*.log
+tune.results*

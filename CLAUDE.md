@@ -83,6 +83,15 @@ anyway rather than the hub's blobs/snapshots symlink layout.
 - Upstream (PR #24162, merged 2026-06-29) had post-merge reports of KV corruption at `ubatch >= 32`
   *with expert offloading*. If output is garbage, try `-ub 16` and record the result here.
 
+## Agent config sync
+`start.sh` calls `~/scripts/update-agent-models.sh` (same as vllm.sh / colibri) to point pi + OpenClaw
+at whatever :8000 serves. Two llama.cpp-specific details:
+- `--alias` is what makes `/v1/models` report `DeepSeek-V4-Flash-0731`; without it the id is the raw
+  container path of the GGUF, which is what would land in the agent configs.
+- That script reads the context window from vLLM's `max_model_len`, **which llama.cpp does not report**.
+  It would silently fall back to its own 32768 default, so `start.sh` passes `CONTEXT_WINDOW` explicitly.
+  Change `CONTEXT_SIZE` in `start.sh` and both agents follow; verified end-to-end at 40960.
+
 ## Ports
 8000 = this service / vLLM (mutually exclusive). 8080 = open-webui, do not use. owui already has
 `http://host.docker.internal:8000/v1` registered, so it picks this up with no config change.
